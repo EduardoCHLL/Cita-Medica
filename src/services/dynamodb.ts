@@ -2,7 +2,7 @@ import AWS from 'aws-sdk';
 import { Appointment, CreateAppointmentRequest, UpdateAppointmentRequest } from '../types';
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
-const TABLE_NAME = process.env.APPOINTMENTS_TABLE || 'cita-medica-lambda-dev';
+const TABLE_NAME = process.env.APPOINTMENTS_TABLE || 'Appointment-Test-1';
 
 export class AppointmentService {
   async createAppointment(appointmentData: CreateAppointmentRequest): Promise<Appointment> {
@@ -10,7 +10,7 @@ export class AppointmentService {
     const appointment: Appointment = {
       id: this.generateId(),
       ...appointmentData,
-      status: 'scheduled',
+      status: 'pending',
       createdAt: now,
       updatedAt: now,
       ttl: Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60), // 1 year TTL

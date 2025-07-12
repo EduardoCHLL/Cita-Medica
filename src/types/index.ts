@@ -1,12 +1,15 @@
 export interface Appointment {
   id: string;
-  patientName: string;
-  patientEmail: string;
-  doctorName: string;
-  specialty: string;
-  date: string;
-  time: string;
-  status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed';
+  insuredId: string;
+  scheduleId: number;
+  countryISO: string;
+  patientName?: string;
+  patientEmail?: string;
+  doctorName?: string;
+  specialty?: string;
+  date?: string;
+  time?: string;
+  status: 'pending' | 'scheduled' | 'confirmed' | 'cancelled' | 'completed';
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -14,16 +17,23 @@ export interface Appointment {
 }
 
 export interface CreateAppointmentRequest {
-  patientName: string;
-  patientEmail: string;
-  doctorName: string;
-  specialty: string;
-  date: string;
-  time: string;
+  insuredId: string;
+  scheduleId: number;
+  countryISO: string;
+  patientName?: string;
+  patientEmail?: string;
+  doctorName?: string;
+  status?: 'pending' | 'scheduled' | 'confirmed' | 'cancelled' | 'completed';
+  specialty?: string;
+  date?: string;
+  time?: string;
   notes?: string;
 }
 
 export interface UpdateAppointmentRequest {
+  insuredId?: string;
+  scheduleId?: number;
+  countryISO?: string;
   patientName?: string;
   patientEmail?: string;
   doctorName?: string;

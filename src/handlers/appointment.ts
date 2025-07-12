@@ -51,7 +51,7 @@ async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
     const body = JSON.parse(event.body || '{}');
     
     // Validate required fields
-    const requiredFields = ['patientName', 'patientEmail', 'doctorName', 'specialty', 'date', 'time'];
+    const requiredFields = ['insuredId', 'scheduleId', 'countryISO'];
     const missingFields = requiredFields.filter(field => !body[field]);
     
     if (missingFields.length > 0) {
@@ -59,8 +59,12 @@ async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
     }
 
     const appointmentData: CreateAppointmentRequest = {
+      insuredId: body.insuredId,
+      scheduleId: body.scheduleId,
+      countryISO: body.countryISO,
       patientName: body.patientName,
       patientEmail: body.patientEmail,
+      status : 'pending',
       doctorName: body.doctorName,
       specialty: body.specialty,
       date: body.date,
