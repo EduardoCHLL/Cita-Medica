@@ -1,4 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { SNS } from 'aws-sdk';
 import { AppointmentService } from '../services/dynamodb';
 import { 
   createSuccessResponse, 
@@ -9,6 +10,7 @@ import {
 import { CreateAppointmentRequest, UpdateAppointmentRequest } from '../types';
 
 const appointmentService = new AppointmentService();
+const sns = new SNS();
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -73,6 +75,10 @@ async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
     };
 
     const appointment = await appointmentService.createAppointment(appointmentData);
+    
+    // Publicar mensaje al SNS Topic con filtros por país
+    await publishToSNS(appointment);
+    
     return createSuccessResponse(appointment, 201);
   } catch (error) {
     console.error('Error creating appointment:', error);
@@ -80,6 +86,50 @@ async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
       message: 'Failed to create appointment',
       code: 'CREATE_ERROR',
     }, 500);
+  }
+}
+
+async function publishToSNS(appointment: any): Promise<void> {
+  try {
+    const topicArn = process.env.SNS_TOPIC_ARN;
+    if (!topicArn) {
+      console.warn('SNS_TOPIC_ARN not configured, skipping SNS publication');
+      return;
+    }
+
+    const message = JSON.stringify(appointment);
+    const messageAttributes = {
+      countryISO: {
+        DataType: 'String',
+        StringValue: appointment.countryISO
+      },
+      appointmentId: {
+        DataType: 'String',
+        StringValue: appointment.id
+      },
+      status: {
+        DataType: 'String',
+        StringValue: appointment.status
+      }
+    };
+
+    const params: SNS.PublishInput = {
+      TopicArn: topicArn,
+      Message: message,
+      MessageAttributes: messageAttributes,
+      Subject: `Nueva cita médica - ${appointment.countryISO}`
+    };
+
+    const result = await sns.publish(params).promise();
+    console.log('Successfully published to SNS:', {
+      messageId: result.MessageId,
+      appointmentId: appointment.id,
+      countryISO: appointment.countryISO
+    });
+  } catch (error) {
+    console.error('Error publishing to SNS:', error);
+    // No lanzamos el error para no fallar la creación de la cita
+    // En producción, podrías querer manejar esto de manera diferente
   }
 }
 

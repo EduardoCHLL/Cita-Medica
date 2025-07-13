@@ -10,6 +10,7 @@ provider:
   environment:
     NODE_ENV: ${self:provider.stage}
     APPOINTMENTS_TABLE: ${self:service}-${self:provider.stage}
+    SNS_TOPIC_ARN: !Ref MedicalAppointmentsTopic
   iam:
     role:
       statements:
@@ -30,7 +31,18 @@ provider:
           Resource: 
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-${self:provider.stage}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:service}-${self:provider.stage}/index/*"
-
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource: !Ref MedicalAppointmentsTopic
+        - Effect: Allow
+          Action:
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource:
+            - !GetAtt PeruQueue.Arn
+            - !GetAtt ChileQueue.Arn
 
 plugins:
   - serverless-plugin-typescript
@@ -44,16 +56,27 @@ custom:
     tsConfigFile: tsconfig.json
 
 functions:
-
-  
-  createAppointment:
+  Appointment:
     handler: src/handlers/appointment.handler
     events:
       - http:
           path: appointments
           method: post
           cors: true
-  
+
+  AppointmentPE:
+    handler: src/handlers/appointment-pe.handler
+    events:
+      - sqs:
+          arn: !GetAtt PeruQueue.Arn
+          batchSize: 1
+
+  AppointmentCL:
+    handler: src/handlers/appointment-cl.handler
+    events:
+      - sqs:
+          arn: !GetAtt ChileQueue.Arn
+          batchSize: 1
 
 resources:
   Resources:
@@ -70,4 +93,44 @@ resources:
             KeyType: HASH
         TimeToLiveSpecification:
           AttributeName: ttl
-          Enabled: true 
+          Enabled: true
+
+    # SNS Topic para notificaciones de citas médicas
+    MedicalAppointmentsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: sns_medical
+        DisplayName: Medical Appointments Notifications
+
+    # Dead Letter Queues
+    PeruDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqs_pe_dlq
+
+    ChileDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqs_cl_dlq
+
+    # Cola SQS para Perú
+    PeruQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqs_pe
+        VisibilityTimeout: 30
+        MessageRetentionPeriod: 1209600
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt PeruDLQ.Arn
+          maxReceiveCount: 3
+
+    # Cola SQS para Chile
+    ChileQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqs_cl
+        VisibilityTimeout: 30
+        MessageRetentionPeriod: 1209600
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt ChileDLQ.Arn
+          maxReceiveCount: 3 

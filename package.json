@@ -6,8 +6,10 @@
   "scripts": {
     "build": "tsc",
     "deploy": "npm run build && serverless deploy",
-    "deploy:dev": "npm run build && serverless deploy --stage dev",
-    "deploy:prod": "npm run build && serverless deploy --stage prod",
+    "deploy:dev": "npm run build && serverless deploy --stage dev && npm run setup-sns:dev",
+    "deploy:test": "npm run build && serverless deploy --stage test && npm run setup-sns:test", 
+    "setup-sns:dev": "STAGE=dev node scripts/setup-sns-subscriptions.js",
+    "setup-sns:test": "STAGE=test node scripts/setup-sns-subscriptions.js", 
     "test": "jest",
     "dev": "serverless offline start",
     "clean": "rm -rf dist node_modules"
