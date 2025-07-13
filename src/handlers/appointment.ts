@@ -8,7 +8,7 @@ import {
   createNotFoundError 
 } from '../utils/response';
 import { CreateAppointmentRequest, UpdateAppointmentRequest } from '../types';
-
+import { v4 as uuidv4 } from 'uuid';
 const appointmentService = new AppointmentService();
 const sns = new SNS();
 
@@ -22,6 +22,7 @@ export const handler = async (
     console.log('Processing appointment completion from SQS', {
       messageCount: event.Records.length,
       requestId: context.awsRequestId,
+      event: JSON.stringify(event),
     });
     for (const record of event.Records) {
       try {
@@ -76,6 +77,7 @@ async function processAppointmentCompletion(record: SQSRecord): Promise<void> {
   console.log('Processing appointment completion:', {
     messageId: record.messageId,
     messageBody: messageBody,
+    detail : JSON.stringify(messageBody.detail)
   });
 
   // Extraer la información del evento de EventBridge
@@ -153,6 +155,7 @@ async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
     }
 
     const appointmentData: CreateAppointmentRequest = {
+      requestId: uuidv4(),
       insuredId: body.insuredId,
       scheduleId: body.scheduleId,
       countryISO: body.countryISO,

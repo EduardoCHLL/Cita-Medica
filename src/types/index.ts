@@ -1,5 +1,6 @@
 export interface Appointment {
   id: string;
+  requestId: string;
   insuredId: string;
   scheduleId: number;
   countryISO: string;
@@ -18,6 +19,7 @@ export interface Appointment {
 }
 
 export interface CreateAppointmentRequest {
+  requestId: string;
   insuredId: string;
   scheduleId: number;
   countryISO: string;

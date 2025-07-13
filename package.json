@@ -7,14 +7,19 @@
     "build": "tsc",
     "deploy": "npm run build && serverless deploy",
     "deploy:dev": "npm run build && sls deploy   -r us-east-1 -s test --aws-profile DEV && npm run setup-sns:dev",
-    "deploy:test": "npm run build && serverless deploy --stage test && npm run setup-sns:test", 
+    "deploy:test": "npm run build && serverless deploy --stage test && npm run setup-sns:test",
     "setup-sns:dev": "STAGE=dev node scripts/setup-sns-subscriptions.js",
-    "setup-sns:test": "STAGE=test node scripts/setup-sns-subscriptions.js", 
+    "setup-sns:test": "STAGE=test node scripts/setup-sns-subscriptions.js",
     "test": "jest",
     "dev": "serverless offline start",
     "clean": "rm -rf dist node_modules"
   },
-  "keywords": ["lambda", "serverless", "typescript", "medical"],
+  "keywords": [
+    "lambda",
+    "serverless",
+    "typescript",
+    "medical"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
@@ -29,6 +34,8 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "aws-sdk": "^2.1490.0"
+    "@types/uuid": "^10.0.0",
+    "aws-sdk": "^2.1490.0",
+    "uuid": "^11.1.0"
   }
-} 
+}

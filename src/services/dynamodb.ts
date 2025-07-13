@@ -1,4 +1,5 @@
 import AWS from 'aws-sdk';
+import { v4 as uuidv4 } from 'uuid';
 import { Appointment, CreateAppointmentRequest, UpdateAppointmentRequest } from '../types';
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -7,7 +8,7 @@ const TABLE_NAME = process.env.APPOINTMENTS_TABLE || 'Appointment-Test-1';
 export class AppointmentService {
   async createAppointment(appointmentData: CreateAppointmentRequest): Promise<Appointment> {
     const now = new Date().toISOString();
-    const appointment: Appointment = {
+    const appointment: Appointment = { 
       id: this.generateId(),
       ...appointmentData,
       status: 'pending',
@@ -100,6 +101,6 @@ export class AppointmentService {
   }
 
   private generateId(): string {
-    return `apt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return uuidv4();
   }
 } 

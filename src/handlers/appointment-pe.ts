@@ -67,10 +67,11 @@ async function processPeruAppointment(record: SQSRecord): Promise<void> {
   // - Procesamiento de documentos peruanos
   
   // Ejemplo de procesamiento específico para Perú
-  await processPeruSpecificLogic(messageBody);
+  const infoRedord = JSON.parse(messageBody.Message);
+  await processPeruSpecificLogic(infoRedord);
   
   // Enviar conformidad del agendamiento a través de EventBridge
-  await sendAppointmentConfirmation(messageBody);
+  await sendAppointmentConfirmation(infoRedord);
   
   console.log('Successfully processed Peru appointment:', record.messageId);
 }
