@@ -26,6 +26,11 @@ Un sistema de gestión de citas médicas construido con TypeScript y AWS Lambda 
 - `GET /hello` - Endpoint de prueba
 - `POST /hello` - Endpoint de prueba
 
+## 📚 Documentación API
+
+La documentación completa de la API está disponible en Swagger Hub:
+**https://app.swaggerhub.com/apis/eduardo-d4f/api-de_citas_medicas/1.0.0**
+
 ## 🛠️ Instalación
 
 1. **Clonar el repositorio**
