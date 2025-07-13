@@ -31,12 +31,24 @@ export const handler: SQSHandler = async (
 async function processPeruAppointment(record: SQSRecord): Promise<void> {
   const messageBody = JSON.parse(record.body);
   
-  // Verificar que el mensaje tiene el atributo countryISO = PE
-  const messageAttributes = record.messageAttributes;
-  const countryISO = messageAttributes?.countryISO?.stringValue;
+  // El mensaje SQS contiene un mensaje SNS, necesitamos extraer los MessageAttributes del SNS
+  let countryISO: string | undefined;
+  
+  // Verificar si es un mensaje SNS (tiene MessageAttributes)
+  if (messageBody.MessageAttributes && messageBody.MessageAttributes.countryISO) {
+    countryISO = messageBody.MessageAttributes.countryISO.Value;
+  } else {
+    // Fallback: verificar en los messageAttributes del SQS (aunque estén vacíos en este caso)
+    const messageAttributes = record.messageAttributes;
+    countryISO = messageAttributes?.countryISO?.stringValue;
+  }
   
   if (countryISO !== 'PE') {
-    console.warn('Received message for Peru queue with wrong countryISO:', countryISO);
+    console.warn('Received message for Peru queue with wrong countryISO:', countryISO, {
+      messageId: record.messageId,
+      snsMessageAttributes: messageBody.MessageAttributes,
+      sqsMessageAttributes: record.messageAttributes
+    });
     return; // Procesamos el mensaje pero registramos la advertencia
   }
 
