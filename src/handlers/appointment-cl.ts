@@ -1,8 +1,10 @@
 import { SQSEvent, SQSRecord, Context, SQSHandler } from 'aws-lambda';
+import { EventBridge } from 'aws-sdk';
 import { AppointmentService } from '../services/dynamodb';
 import { Appointment } from '../types';
 
 const appointmentService = new AppointmentService();
+const eventBridge = new EventBridge();
 
 export const handler: SQSHandler = async (
   event: SQSEvent,
@@ -54,6 +56,9 @@ async function processChileAppointment(record: SQSRecord): Promise<void> {
   // Ejemplo de procesamiento específico para Chile
   await processChileSpecificLogic(messageBody);
   
+  // Enviar conformidad del agendamiento a través de EventBridge
+  await sendAppointmentConfirmation(messageBody);
+  
   console.log('Successfully processed Chile appointment:', record.messageId);
 }
 
@@ -72,4 +77,36 @@ async function processChileSpecificLogic(appointmentData: any): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 100));
   
   console.log('Chile-specific logic completed');
+}
+
+async function sendAppointmentConfirmation(appointmentData: any): Promise<void> {
+  try {
+    const eventBusName = process.env.EVENT_BUS_NAME || 'default';
+    
+    const event = {
+      Source: 'cita-medica.chile',
+      DetailType: 'AppointmentConfirmed',
+      Detail: JSON.stringify({
+        appointmentId: appointmentData.id,
+        countryISO: 'CL',
+        status: 'confirmed',
+        confirmedAt: new Date().toISOString(),
+        appointmentData: appointmentData
+      }),
+      EventBusName: eventBusName
+    };
+
+    const result = await eventBridge.putEvents({
+      Entries: [event]
+    }).promise();
+
+    console.log('Successfully sent appointment confirmation to EventBridge:', {
+      eventId: result.Entries?.[0]?.EventId,
+      appointmentId: appointmentData.id,
+      countryISO: 'CL'
+    });
+  } catch (error) {
+    console.error('Error sending appointment confirmation to EventBridge:', error);
+    throw error; // Re-lanzamos el error para que el mensaje vuelva a la cola
+  }
 } 

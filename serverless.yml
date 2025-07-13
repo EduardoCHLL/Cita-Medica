@@ -11,6 +11,7 @@ provider:
     NODE_ENV: ${self:provider.stage}
     APPOINTMENTS_TABLE: ${self:service}-${self:provider.stage}
     SNS_TOPIC_ARN: !Ref MedicalAppointmentsTopic
+    EVENT_BUS_NAME: !Ref AppointmentEventBus
   iam:
     role:
       statements:
@@ -43,6 +44,11 @@ provider:
           Resource:
             - !GetAtt PeruQueue.Arn
             - !GetAtt ChileQueue.Arn
+            - !GetAtt CompletionQueue.Arn
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: !GetAtt AppointmentEventBus.Arn
 
 plugins:
   - serverless-plugin-typescript
@@ -63,6 +69,9 @@ functions:
           path: appointments
           method: post
           cors: true
+      - sqs:
+          arn: !GetAtt CompletionQueue.Arn
+          batchSize: 1
 
   AppointmentPE:
     handler: src/handlers/appointment-pe.handler
@@ -102,6 +111,12 @@ resources:
         TopicName: sns_medical
         DisplayName: Medical Appointments Notifications
 
+    # EventBridge Bus para eventos de confirmación
+    AppointmentEventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: appointment-confirmation-bus
+
     # Dead Letter Queues
     PeruDLQ:
       Type: AWS::SQS::Queue
@@ -133,4 +148,70 @@ resources:
         MessageRetentionPeriod: 1209600
         RedrivePolicy:
           deadLetterTargetArn: !GetAtt ChileDLQ.Arn
-          maxReceiveCount: 3 
+          maxReceiveCount: 3
+
+    # Cola SQS para confirmaciones de completado
+    CompletionQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqs_completion
+        VisibilityTimeout: 30
+        MessageRetentionPeriod: 1209600
+
+    # Regla de EventBridge para Perú
+    PeruEventRule:
+      Type: AWS::Events::Rule
+      Properties:
+        EventBusName: !Ref AppointmentEventBus
+        Name: peru-appointment-confirmed
+        Description: Rule to capture Peru appointment confirmations
+        EventPattern:
+          source:
+            - "cita-medica.peru"
+          detail-type:
+            - "AppointmentConfirmed"
+        Targets:
+          - Arn: !GetAtt CompletionQueue.Arn
+            Id: PeruCompletionTarget
+
+    # Regla de EventBridge para Chile
+    ChileEventRule:
+      Type: AWS::Events::Rule
+      Properties:
+        EventBusName: !Ref AppointmentEventBus
+        Name: chile-appointment-confirmed
+        Description: Rule to capture Chile appointment confirmations
+        EventPattern:
+          source:
+            - "cita-medica.chile"
+          detail-type:
+            - "AppointmentConfirmed"
+        Targets:
+          - Arn: !GetAtt CompletionQueue.Arn
+            Id: ChileCompletionTarget
+
+    # Permisos para que EventBridge pueda enviar a SQS
+    CompletionQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref CompletionQueue
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt CompletionQueue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !GetAtt PeruEventRule.Arn
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt CompletionQueue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !GetAtt ChileEventRule.Arn 

@@ -13,6 +13,7 @@ export interface Appointment {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
   ttl?: number;
 }
 
@@ -42,6 +43,7 @@ export interface UpdateAppointmentRequest {
   time?: string;
   status?: 'scheduled' | 'confirmed' | 'cancelled' | 'completed';
   notes?: string;
+  completedAt?: string;
 }
 
 export interface ApiResponse<T = any> {

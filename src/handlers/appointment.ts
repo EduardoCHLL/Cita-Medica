@@ -1,4 +1,4 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult, SQSEvent, SQSRecord, Context } from 'aws-lambda';
 import { SNS } from 'aws-sdk';
 import { AppointmentService } from '../services/dynamodb';
 import { 
@@ -13,8 +13,30 @@ const appointmentService = new AppointmentService();
 const sns = new SNS();
 
 export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
+  event: any,
+  context: Context
+): Promise<any> => {
+  // Detectar si es SQS o API Gateway
+  if (event.Records && Array.isArray(event.Records) && event.Records[0]?.eventSource === 'aws:sqs') {
+    // SQS batch
+    console.log('Processing appointment completion from SQS', {
+      messageCount: event.Records.length,
+      requestId: context.awsRequestId,
+    });
+    for (const record of event.Records) {
+      try {
+        await processAppointmentCompletion(record);
+      } catch (error) {
+        console.error('Error processing appointment completion:', error, {
+          messageId: record.messageId,
+          receiptHandle: record.receiptHandle,
+        });
+        throw error; // Esto hará que el mensaje vuelva a la cola
+      }
+    }
+    return;
+  }
+  // API Gateway
   try {
     console.log('Appointment handler called', {
       method: event.httpMethod,
@@ -47,6 +69,76 @@ export const handler = async (
     }, 500);
   }
 };
+
+async function processAppointmentCompletion(record: SQSRecord): Promise<void> {
+  const messageBody = JSON.parse(record.body);
+  
+  console.log('Processing appointment completion:', {
+    messageId: record.messageId,
+    messageBody: messageBody,
+  });
+
+  // Extraer la información del evento de EventBridge
+  let appointmentId: string;
+  let countryISO: string;
+  let appointmentData: any;
+
+  try {
+    // El mensaje SQS contiene el evento de EventBridge
+    if (messageBody.detail) {
+      // Formato directo del evento EventBridge
+      const detail = typeof messageBody.detail === 'string' 
+        ? JSON.parse(messageBody.detail) 
+        : messageBody.detail;
+      
+      appointmentId = detail.appointmentId;
+      countryISO = detail.countryISO;
+      appointmentData = detail.appointmentData;
+    } else {
+      // Fallback: intentar extraer del body directamente
+      appointmentId = messageBody.appointmentId;
+      countryISO = messageBody.countryISO;
+      appointmentData = messageBody.appointmentData;
+    }
+
+    if (!appointmentId) {
+      throw new Error('appointmentId is required in the message');
+    }
+
+    console.log('Extracted appointment data:', {
+      appointmentId,
+      countryISO,
+      hasAppointmentData: !!appointmentData
+    });
+
+    // Actualizar el estado del agendamiento a "completed"
+    const updateData = {
+      status: 'completed' as const,
+      completedAt: new Date().toISOString(),
+      countryISO: countryISO
+    };
+
+    const updatedAppointment = await appointmentService.updateAppointment(appointmentId, updateData);
+    
+    if (!updatedAppointment) {
+      throw new Error(`Appointment with id ${appointmentId} not found`);
+    }
+
+    console.log('Successfully updated appointment status to completed:', {
+      messageId: record.messageId,
+      appointmentId: appointmentId,
+      countryISO: countryISO,
+      newStatus: updatedAppointment.status
+    });
+
+  } catch (error) {
+    console.error('Error processing appointment completion:', error, {
+      messageId: record.messageId,
+      messageBody: messageBody
+    });
+    throw error;
+  }
+}
 
 async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
