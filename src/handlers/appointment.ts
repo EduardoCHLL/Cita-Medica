@@ -9,8 +9,10 @@ import {
 } from '../utils/response';
 import { CreateAppointmentRequest, UpdateAppointmentRequest } from '../types';
 import { v4 as uuidv4 } from 'uuid';
-const appointmentService = new AppointmentService();
-const sns = new SNS();
+
+// Default instances for production use
+const defaultAppointmentService = new AppointmentService();
+const defaultSNS = new SNS();
 
 export const handler = async (
   event: any,
@@ -26,7 +28,7 @@ export const handler = async (
     });
     for (const record of event.Records) {
       try {
-        await processAppointmentCompletion(record);
+        await processAppointmentCompletion(record, defaultAppointmentService);
       } catch (error) {
         console.error('Error processing appointment completion:', error, {
           messageId: record.messageId,
@@ -47,11 +49,11 @@ export const handler = async (
 
     switch (event.httpMethod) {
       case 'POST':
-        return await createAppointment(event);
+        return await createAppointment(event, defaultAppointmentService, defaultSNS);
       case 'GET':
         console.log('GET',event.pathParameters?.id,event.path)
         if(event.pathParameters?.id){
-          return event.path==('/appointments-by-client/'+event.pathParameters?.id) ?await getAllAppointmentsbyinsuredId(event.pathParameters.id):await getAppointment(event.pathParameters.id)
+          return event.path==('/appointments-by-client/'+event.pathParameters?.id) ?await getAllAppointmentsbyinsuredId(event.pathParameters.id, defaultAppointmentService):await getAppointment(event.pathParameters.id, defaultAppointmentService)
         } 
         return createErrorResponse({
           message: `Method ${event.httpMethod} not allowed`,
@@ -72,7 +74,11 @@ export const handler = async (
   }
 };
 
-async function processAppointmentCompletion(record: SQSRecord): Promise<void> {
+// Export for testing with dependency injection
+export async function processAppointmentCompletion(
+  record: SQSRecord,
+  appointmentService: AppointmentService = defaultAppointmentService
+): Promise<void> {
   const messageBody = JSON.parse(record.body);
   
   console.log('Processing appointment completion:', {
@@ -143,7 +149,12 @@ async function processAppointmentCompletion(record: SQSRecord): Promise<void> {
   }
 }
 
-async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+// Export for testing with dependency injection
+export async function createAppointment(
+  event: APIGatewayProxyEvent,
+  appointmentService: AppointmentService = defaultAppointmentService,
+  sns: SNS = defaultSNS
+): Promise<APIGatewayProxyResult> {
   try {
     const body = JSON.parse(event.body || '{}');
     
@@ -173,7 +184,7 @@ async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
     const appointment = await appointmentService.createAppointment(appointmentData);
     
     // Publicar mensaje al SNS Topic con filtros por país
-    await publishToSNS(appointment);
+    await publishToSNS(appointment, sns);
     
     return createSuccessResponse(appointment, 201);
   } catch (error) {
@@ -185,7 +196,10 @@ async function createAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
   }
 }
 
-async function publishToSNS(appointment: any): Promise<void> {
+async function publishToSNS(
+  appointment: any,
+  sns: SNS = defaultSNS
+): Promise<void> {
   try {
     const topicArn = process.env.SNS_TOPIC_ARN;
     if (!topicArn) {
@@ -209,14 +223,15 @@ async function publishToSNS(appointment: any): Promise<void> {
       }
     };
 
-    const params: SNS.PublishInput = {
+    const subject = `Nueva cita médica - ${appointment.countryISO}`;
+
+    const result = await sns.publish({
       TopicArn: topicArn,
       Message: message,
       MessageAttributes: messageAttributes,
-      Subject: `Nueva cita médica - ${appointment.countryISO}`
-    };
+      Subject: subject
+    }).promise();
 
-    const result = await sns.publish(params).promise();
     console.log('Successfully published to SNS:', {
       messageId: result.MessageId,
       appointmentId: appointment.id,
@@ -224,19 +239,22 @@ async function publishToSNS(appointment: any): Promise<void> {
     });
   } catch (error) {
     console.error('Error publishing to SNS:', error);
-    // No lanzamos el error para no fallar la creación de la cita
-    // En producción, podrías querer manejar esto de manera diferente
+    // No re-lanzamos el error para que la creación de la cita no falle por problemas de SNS
   }
 }
 
-async function getAppointment(id: string): Promise<APIGatewayProxyResult> {
+// Export for testing with dependency injection
+export async function getAppointment(
+  id: string,
+  appointmentService: AppointmentService = defaultAppointmentService
+): Promise<APIGatewayProxyResult> {
   try {
     const appointment = await appointmentService.getAppointment(id);
     
     if (!appointment) {
       return createNotFoundError(`Appointment with id ${id} not found`);
     }
-
+    
     return createSuccessResponse(appointment);
   } catch (error) {
     console.error('Error getting appointment:', error);
@@ -247,12 +265,17 @@ async function getAppointment(id: string): Promise<APIGatewayProxyResult> {
   }
 }
 
-async function getAllAppointmentsbyinsuredId(Id: string): Promise<APIGatewayProxyResult> {
+// Export for testing with dependency injection
+export async function getAllAppointmentsbyinsuredId(
+  Id: string,
+  appointmentService: AppointmentService = defaultAppointmentService
+): Promise<APIGatewayProxyResult> {
   try {
     const appointments = await appointmentService.getAllAppointmentsbyinsuredId(Id);
+    
     return createSuccessResponse(appointments);
   } catch (error) {
-    console.error('Error getting all appointments:', error);
+    console.error('Error getting appointments by insured ID:', error);
     return createErrorResponse({
       message: 'Failed to get appointments',
       code: 'GET_ERROR',
@@ -279,7 +302,7 @@ async function updateAppointment(event: APIGatewayProxyEvent): Promise<APIGatewa
       notes: body.notes,
     };
 
-    const appointment = await appointmentService.updateAppointment(id, updateData);
+    const appointment = await defaultAppointmentService.updateAppointment(id, updateData);
     
     if (!appointment) {
       return createNotFoundError(`Appointment with id ${id} not found`);
@@ -301,7 +324,7 @@ async function deleteAppointment(id?: string): Promise<APIGatewayProxyResult> {
       return createValidationError('Appointment ID is required');
     }
 
-    const deleted = await appointmentService.deleteAppointment(id);
+    const deleted = await defaultAppointmentService.deleteAppointment(id);
     
     if (!deleted) {
       return createNotFoundError(`Appointment with id ${id} not found`);

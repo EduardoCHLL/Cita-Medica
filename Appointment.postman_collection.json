@@ -1,0 +1,55 @@
+{
+	"info": {
+		"_postman_id": "c6e76647-4fe5-474f-a035-b7fa09c0c441",
+		"name": "Appointment",
+		"description": "# Documentación API - Citas Médicas\n\n## 📋 Descripción\n\nEsta documentación describe la API de Citas Médicas que utiliza AWS Lambda, DynamoDB, SNS y SQS para procesar citas médicas con lógica específica por país (Perú y Chile).\n\n## 🚀 Endpoints Disponibles\n\n### 1\\. Crear Cita Médica\n\n- **URL**: `POST /appointments`\n    \n- **Descripción**: Crea una nueva cita médica en el sistema\n    \n- **Body requerido**: `insuredId`, `scheduleId`, `countryISO`\n    \n\n### 2\\. Obtener Cita por ID\n\n- **URL**: `GET /appointments/{id}`\n    \n- **Descripción**: Recupera una cita médica específica por su ID único\n    \n- **Parámetros**: `id` (UUID de la cita)\n    \n\n### 3\\. Obtener Citas por Cliente\n\n- **URL**: `GET /appointments-by-client/{id}`\n    \n- **Descripción**: Recupera todas las citas de un asegurado específico\n    \n- **Parámetros**: `id` (ID del asegurado)\n    \n\n## 📁 Archivos de Documentación\n\n### `swagger.yaml`\n\n- Documentación en formato YAML\n    \n- Compatible con Swagger UI y herramientas de desarrollo\n    \n- Más legible para humanos\n    \n\n### `swagger.json`\n\n- Documentación en formato JSON\n    \n- Mayor compatibilidad con herramientas y librerías\n    \n- Formato estándar para integraciones\n    \n\n## 🛠️ Cómo Usar la Documentación\n\n### 1\\. Swagger UI Online\n\n1. Ve a [Swagger Editor](https://editor.swagger.io/)\n    \n2. Copia y pega el contenido de `swagger.yaml`\n    \n3. Visualiza la documentación interactiva\n    \n\n### 2\\. Swagger UI Local\n\n``` bash\n# Instalar Swagger UI\nnpm install -g swagger-ui-express\n# Servir la documentación\nswagger-ui-express swagger.yaml\n\n ```\n\n### 3\\. Postman\n\n1. Importa el archivo `swagger.json` en Postman\n    \n2. Las colecciones se generarán automáticamente\n    \n3. Prueba los endpoints directamente\n    \n\n### 4\\. Insomnia\n\n1. Importa el archivo `swagger.yaml` en Insomnia\n    \n2. Genera automáticamente las peticiones\n    \n3. Prueba la API con ejemplos incluidos\n    \n\n## 🔧 Ejemplos de Uso\n\n### Crear Cita (Perú)\n\n``` bash\ncurl -X POST \"https://9wgd00k907.execute-api.us-east-1.amazonaws.com/test/appointments\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"insuredId\": \"12345666\",\n    \"scheduleId\": 100,\n    \"countryISO\": \"PE\",\n    \"patientName\": \"Juan Pérez García\",\n    \"patientEmail\": \"juan.perez@email.com\",\n    \"doctorName\": \"Dr. María González\",\n    \"specialty\": \"Cardiología\",\n    \"date\": \"2024-01-15\",\n    \"time\": \"14:30\",\n    \"notes\": \"Paciente con antecedentes de hipertensión\"\n  }'\n\n ```\n\n### Obtener Cita por ID\n\n``` bash\ncurl -X GET \"https://9wgd00k907.execute-api.us-east-1.amazonaws.com/test/appointments/cf543683-6790-440a-9b9b-df9f36865f91\"\n\n ```\n\n### Obtener Citas por Cliente\n\n``` bash\ncurl -X GET \"https://9wgd00k907.execute-api.us-east-1.amazonaws.com/test/appointments-by-client/12345666\"\n\n ```\n\n## 📊 Modelos de Datos\n\n### CreateAppointmentRequest\n\n``` json\n{\n  \"insuredId\": \"string (requerido)\",\n  \"scheduleId\": \"integer (requerido)\",\n  \"countryISO\": \"PE|CL (requerido)\",\n  \"patientName\": \"string (opcional)\",\n  \"patientEmail\": \"string (opcional)\",\n  \"doctorName\": \"string (opcional)\",\n  \"specialty\": \"string (opcional)\",\n  \"date\": \"YYYY-MM-DD (opcional)\",\n  \"time\": \"HH:MM (opcional)\",\n  \"notes\": \"string (opcional)\",\n  \"status\": \"pending|scheduled|confirmed|cancelled|completed (opcional)\"\n}\n\n ```\n\n### Appointment (Respuesta)\n\n``` json\n{\n  \"id\": \"uuid\",\n  \"requestId\": \"uuid\",\n  \"insuredId\": \"string\",\n  \"scheduleId\": \"integer\",\n  \"countryISO\": \"PE|CL\",\n  \"patientName\": \"string\",\n  \"patientEmail\": \"string\",\n  \"doctorName\": \"string\",\n  \"specialty\": \"string\",\n  \"date\": \"YYYY-MM-DD\",\n  \"time\": \"HH:MM\",\n  \"status\": \"pending|scheduled|confirmed|cancelled|completed\",\n  \"notes\": \"string\",\n  \"createdAt\": \"ISO 8601\",\n  \"updatedAt\": \"ISO 8601\",\n  \"completedAt\": \"ISO 8601 (opcional)\",\n  \"ttl\": \"integer\"\n}\n\n ```\n\n## 🔍 Códigos de Estado\n\n- **200**: Operación exitosa\n    \n- **201**: Recurso creado exitosamente\n    \n- **400**: Datos de entrada inválidos\n    \n- **404**: Recurso no encontrado\n    \n- **500**: Error interno del servidor\n    \n\n## 🌍 Soporte por País\n\n### Perú (PE)\n\n- Integración con sistemas de salud peruanos\n    \n- Validaciones específicas del país\n    \n- Notificaciones locales\n    \n\n### Chile (CL)\n\n- Integración con FONASA/ISAPRE\n    \n- Validaciones específicas del país\n    \n- Notificaciones locales\n    \n\n## 🔐 Seguridad\n\nActualmente la API no requiere autenticación, pero está preparada para implementar:\n\n- API Key authentication\n    \n- JWT tokens\n    \n- OAuth 2.0\n    \n\n## 📝 Notas Importantes\n\n1. **GET sin Body**: Las peticiones GET no deben incluir body\n    \n2. **UUIDs**: Los IDs de citas son UUIDs generados automáticamente\n    \n3. **TTL**: Los registros tienen TTL de 1 año en DynamoDB\n    \n4. **Estados**: Las citas pasan por diferentes estados durante su ciclo de vida\n    \n5. **Procesamiento Asíncrono**: Las citas se procesan de forma asíncrona por país\n    \n\n## 🚨 Solución de Problemas\n\n### Error 403 en GET\n\nSi recibes un error 403 al hacer GET, asegúrate de:\n\n- No incluir body en la petición GET\n    \n- Usar el Content-Type correcto\n    \n- Verificar que el ID existe\n    \n\n### Error 400 en POST\n\nSi recibes un error 400, verifica que:\n\n- Todos los campos requeridos estén presentes\n    \n- El formato de los datos sea correcto\n    \n- El countryISO sea \"PE\" o \"CL\"\n    \n\n## 📞 Soporte\n\nPara soporte técnico:\n\n- Email: [soporte@citamedica.com](https://mailto:soporte@citamedica.com)\n    \n- Documentación: [GitHub Repository](https://github.com/tu-usuario/cita-medica-lambda)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "15227797",
+		"_collection_link": "https://lively-meteor-230881.postman.co/workspace/Citas-medicas~a05c4f96-a109-4917-97d6-7078e6fe4908/collection/15227797-c6e76647-4fe5-474f-a035-b7fa09c0c441?action=share&source=collection_link&creator=15227797"
+	},
+	"item": [
+		{
+			"name": "createAppointment",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"insuredId\": \"12345666\",\n  \"scheduleId\": 100,\n  \"countryISO\": \"PE\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "https://9wgd00k907.execute-api.us-east-1.amazonaws.com/test/appointments"
+			},
+			"response": []
+		},
+		{
+			"name": "get by Id",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": "https://9wgd00k907.execute-api.us-east-1.amazonaws.com/test/appointments/6aadcc25-3b0a-4157-aa69-a3b29a23d47b"
+			},
+			"response": []
+		},
+		{
+			"name": "get by insuredId",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": "https://9wgd00k907.execute-api.us-east-1.amazonaws.com/test/appointments-by-client/12345666"
+			},
+			"response": []
+		}
+	]
+}

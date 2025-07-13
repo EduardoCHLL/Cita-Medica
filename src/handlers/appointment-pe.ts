@@ -3,8 +3,9 @@ import { EventBridge } from 'aws-sdk';
 import { AppointmentService } from '../services/dynamodb';
 import { Appointment } from '../types';
 
-const appointmentService = new AppointmentService();
-const eventBridge = new EventBridge();
+// Default instances for production use
+const defaultAppointmentService = new AppointmentService();
+const defaultEventBridge = new EventBridge();
 
 export const handler: SQSHandler = async (
   event: SQSEvent,
@@ -18,7 +19,7 @@ export const handler: SQSHandler = async (
 
   for (const record of event.Records) {
     try {
-      await processPeruAppointment(record);
+      await processPeruAppointment(record, defaultAppointmentService, defaultEventBridge);
     } catch (error) {
       console.error('Error processing Peru appointment:', error, {
         messageId: record.messageId,
@@ -30,7 +31,12 @@ export const handler: SQSHandler = async (
   }
 };
 
-async function processPeruAppointment(record: SQSRecord): Promise<void> {
+// Export for testing with dependency injection
+export async function processPeruAppointment(
+  record: SQSRecord, 
+  appointmentService: AppointmentService = defaultAppointmentService,
+  eventBridge: EventBridge = defaultEventBridge
+): Promise<void> {
   const messageBody = JSON.parse(record.body);
   
   // El mensaje SQS contiene un mensaje SNS, necesitamos extraer los MessageAttributes del SNS
@@ -71,7 +77,7 @@ async function processPeruAppointment(record: SQSRecord): Promise<void> {
   await processPeruSpecificLogic(infoRedord);
   
   // Enviar conformidad del agendamiento a través de EventBridge
-  await sendAppointmentConfirmation(infoRedord);
+  await sendAppointmentConfirmation(infoRedord, eventBridge);
   
   console.log('Successfully processed Peru appointment:', record.messageId);
 }
@@ -92,7 +98,10 @@ async function processPeruSpecificLogic(appointmentData: any): Promise<void> {
   console.log('Peru-specific logic completed');
 }
 
-async function sendAppointmentConfirmation(appointmentData: any): Promise<void> {
+async function sendAppointmentConfirmation(
+  appointmentData: any, 
+  eventBridge: EventBridge = defaultEventBridge
+): Promise<void> {
   try {
     const eventBusName = process.env.EVENT_BUS_NAME || 'default';
     
