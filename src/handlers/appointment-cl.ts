@@ -52,12 +52,12 @@ async function processChileAppointment(record: SQSRecord): Promise<void> {
   // - Integración con FONASA o ISAPRE
   // - Notificaciones específicas
   // - Procesamiento de documentos chilenos
-  
+  const infoRedord = JSON.parse(messageBody.Message);
   // Ejemplo de procesamiento específico para Chile
-  await processChileSpecificLogic(messageBody);
+  await processChileSpecificLogic(infoRedord);
   
   // Enviar conformidad del agendamiento a través de EventBridge
-  await sendAppointmentConfirmation(messageBody);
+  await sendAppointmentConfirmation(infoRedord);
   
   console.log('Successfully processed Chile appointment:', record.messageId);
 }
