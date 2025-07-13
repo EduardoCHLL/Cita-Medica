@@ -11,6 +11,7 @@ export const handler: SQSHandler = async (
   console.log('Processing Peru appointments from SQS', {
     messageCount: event.Records.length,
     requestId: context.awsRequestId,
+    event: JSON.stringify(event),
   });
 
   for (const record of event.Records) {

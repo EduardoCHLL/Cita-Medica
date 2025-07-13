@@ -9,29 +9,27 @@ async function setupSNSSubscriptions() {
   try {
     console.log('Configurando suscripciones de SNS...');
 
-    // Obtener el ARN del topic SNS
-    const topicArn = process.env.SNS_TOPIC_ARN;
+    // Obtener el ARN del topic SNS automáticamente
+    const topicArn = await getSNSTopicArn();
     if (!topicArn) {
-      throw new Error('SNS_TOPIC_ARN no está configurado');
+      throw new Error('No se encontró el SNS Topic "sns_medical"');
     }
+
+    console.log('SNS Topic encontrado:', topicArn);
 
     // Obtener las URLs de las colas SQS
     const stage = process.env.STAGE || 'dev';
-    const serviceName = 'cita-medica-lambda';
     
-    const peruQueueUrl = `https://sqs.${AWS.config.region}.amazonaws.com/${process.env.AWS_ACCOUNT_ID}/${serviceName}-${stage}-PeruQueue-*`;
-    const chileQueueUrl = `https://sqs.${AWS.config.region}.amazonaws.com/${process.env.AWS_ACCOUNT_ID}/${serviceName}-${stage}-ChileQueue-*`;
-
-    // Obtener los ARNs de las colas
-    const peruQueues = await sqs.listQueues({ QueueNamePrefix: `${serviceName}-${stage}-PeruQueue` }).promise();
-    const chileQueues = await sqs.listQueues({ QueueNamePrefix: `${serviceName}-${stage}-ChileQueue` }).promise();
+    // Obtener los ARNs de las colas usando los nombres correctos
+    const peruQueues = await sqs.listQueues({ QueueNamePrefix: 'sqs_pe' }).promise();
+    const chileQueues = await sqs.listQueues({ QueueNamePrefix: 'sqs_cl' }).promise();
 
     if (!peruQueues.QueueUrls || peruQueues.QueueUrls.length === 0) {
-      throw new Error('No se encontró la cola de Perú');
+      throw new Error('No se encontró la cola de Perú (sqs_pe)');
     }
 
     if (!chileQueues.QueueUrls || chileQueues.QueueUrls.length === 0) {
-      throw new Error('No se encontró la cola de Chile');
+      throw new Error('No se encontró la cola de Chile (sqs_cl)');
     }
 
     const peruQueueArn = await getQueueArn(peruQueues.QueueUrls[0]);
@@ -77,6 +75,17 @@ async function setupSNSSubscriptions() {
   } catch (error) {
     console.error('Error configurando suscripciones de SNS:', error);
     throw error;
+  }
+}
+
+async function getSNSTopicArn() {
+  try {
+    const topics = await sns.listTopics().promise();
+    const topic = topics.Topics.find(t => t.TopicArn.includes('sns_medical'));
+    return topic ? topic.TopicArn : null;
+  } catch (error) {
+    console.error('Error obteniendo SNS Topic:', error);
+    return null;
   }
 }
 
