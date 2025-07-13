@@ -1,0 +1,570 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API de Citas Médicas",
+    "description": "API para gestión de citas médicas con soporte para múltiples países (Perú y Chile). El sistema utiliza AWS Lambda, DynamoDB, SNS y SQS para procesar citas médicas con lógica específica por país.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Soporte Técnico",
+      "email": "soporte@citamedica.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://9wgd00k907.execute-api.us-east-1.amazonaws.com/test",
+      "description": "Servidor de pruebas AWS"
+    },
+    {
+      "url": "http://localhost:3000/dev",
+      "description": "Servidor local de desarrollo"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Citas Médicas",
+      "description": "Operaciones relacionadas con la gestión de citas médicas"
+    }
+  ],
+  "paths": {
+    "/appointments": {
+      "post": {
+        "tags": ["Citas Médicas"],
+        "summary": "Crear nueva cita médica",
+        "description": "Crea una nueva cita médica en el sistema. La cita se procesará según el país especificado y se enviará a las colas correspondientes para procesamiento específico por país.",
+        "operationId": "createAppointment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppointmentRequest"
+              },
+              "examples": {
+                "peru_example": {
+                  "summary": "Ejemplo para Perú",
+                  "value": {
+                    "insuredId": "12345666",
+                    "scheduleId": 100,
+                    "countryISO": "PE",
+                    "patientName": "Juan Pérez García",
+                    "patientEmail": "juan.perez@email.com",
+                    "doctorName": "Dr. María González",
+                    "specialty": "Cardiología",
+                    "date": "2024-01-15",
+                    "time": "14:30",
+                    "notes": "Paciente con antecedentes de hipertensión"
+                  }
+                },
+                "chile_example": {
+                  "summary": "Ejemplo para Chile",
+                  "value": {
+                    "insuredId": "987654321",
+                    "scheduleId": 200,
+                    "countryISO": "CL",
+                    "patientName": "Ana Silva Rodríguez",
+                    "patientEmail": "ana.silva@email.com",
+                    "doctorName": "Dr. Carlos Mendoza",
+                    "specialty": "Dermatología",
+                    "date": "2024-01-20",
+                    "time": "10:00",
+                    "notes": "Consulta de seguimiento"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cita creada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentResponse"
+                },
+                "example": {
+                  "statusCode": 201,
+                  "body": {
+                    "id": "cf543683-6790-440a-9b9b-df9f36865f91",
+                    "requestId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "insuredId": "12345666",
+                    "scheduleId": 100,
+                    "countryISO": "PE",
+                    "patientName": "Juan Pérez García",
+                    "patientEmail": "juan.perez@email.com",
+                    "doctorName": "Dr. María González",
+                    "specialty": "Cardiología",
+                    "date": "2024-01-15",
+                    "time": "14:30",
+                    "status": "pending",
+                    "notes": "Paciente con antecedentes de hipertensión",
+                    "createdAt": "2024-01-10T10:30:00.000Z",
+                    "updatedAt": "2024-01-10T10:30:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de entrada inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "body": {
+                    "message": "Missing required fields: insuredId, scheduleId, countryISO",
+                    "code": "VALIDATION_ERROR"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "body": {
+                    "message": "Failed to create appointment",
+                    "code": "CREATE_ERROR"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/{id}": {
+      "get": {
+        "tags": ["Citas Médicas"],
+        "summary": "Obtener cita médica por ID",
+        "description": "Recupera una cita médica específica por su ID único. No requiere body en la petición GET.",
+        "operationId": "getAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "ID único de la cita médica",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "cf543683-6790-440a-9b9b-df9f36865f91"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cita encontrada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentResponse"
+                },
+                "example": {
+                  "statusCode": 200,
+                  "body": {
+                    "id": "cf543683-6790-440a-9b9b-df9f36865f91",
+                    "requestId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "insuredId": "12345666",
+                    "scheduleId": 100,
+                    "countryISO": "PE",
+                    "patientName": "Juan Pérez García",
+                    "patientEmail": "juan.perez@email.com",
+                    "doctorName": "Dr. María González",
+                    "specialty": "Cardiología",
+                    "date": "2024-01-15",
+                    "time": "14:30",
+                    "status": "confirmed",
+                    "notes": "Paciente con antecedentes de hipertensión",
+                    "createdAt": "2024-01-10T10:30:00.000Z",
+                    "updatedAt": "2024-01-10T11:45:00.000Z",
+                    "completedAt": "2024-01-10T11:45:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cita no encontrada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "statusCode": 404,
+                  "body": {
+                    "message": "Appointment with id cf543683-6790-440a-9b9b-df9f36865f91 not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "body": {
+                    "message": "Failed to get appointment",
+                    "code": "GET_ERROR"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments-by-client/{id}": {
+      "get": {
+        "tags": ["Citas Médicas"],
+        "summary": "Obtener todas las citas de un cliente",
+        "description": "Recupera todas las citas médicas asociadas a un ID de asegurado específico. Útil para consultar el historial de citas de un paciente.",
+        "operationId": "getAppointmentsByClient",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "ID del asegurado/cliente",
+            "schema": {
+              "type": "string"
+            },
+            "example": "12345666"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Citas encontradas exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentsListResponse"
+                },
+                "example": {
+                  "statusCode": 200,
+                  "body": [
+                    {
+                      "id": "cf543683-6790-440a-9b9b-df9f36865f91",
+                      "requestId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "insuredId": "12345666",
+                      "scheduleId": 100,
+                      "countryISO": "PE",
+                      "patientName": "Juan Pérez García",
+                      "patientEmail": "juan.perez@email.com",
+                      "doctorName": "Dr. María González",
+                      "specialty": "Cardiología",
+                      "date": "2024-01-15",
+                      "time": "14:30",
+                      "status": "confirmed",
+                      "notes": "Paciente con antecedentes de hipertensión",
+                      "createdAt": "2024-01-10T10:30:00.000Z",
+                      "updatedAt": "2024-01-10T11:45:00.000Z"
+                    },
+                    {
+                      "id": "abc123-def456-ghi789-jkl012-mno345",
+                      "requestId": "b2c3d4e5-f6g7-8901-bcde-f23456789012",
+                      "insuredId": "12345666",
+                      "scheduleId": 101,
+                      "countryISO": "PE",
+                      "patientName": "Juan Pérez García",
+                      "patientEmail": "juan.perez@email.com",
+                      "doctorName": "Dr. Roberto Silva",
+                      "specialty": "Oftalmología",
+                      "date": "2024-02-01",
+                      "time": "09:00",
+                      "status": "pending",
+                      "notes": "Control anual",
+                      "createdAt": "2024-01-12T15:20:00.000Z",
+                      "updatedAt": "2024-01-12T15:20:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "body": {
+                    "message": "Failed to get appointments",
+                    "code": "GET_ERROR"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateAppointmentRequest": {
+        "type": "object",
+        "required": ["insuredId", "scheduleId", "countryISO"],
+        "properties": {
+          "insuredId": {
+            "type": "string",
+            "description": "ID único del asegurado/cliente",
+            "example": "12345666"
+          },
+          "scheduleId": {
+            "type": "integer",
+            "description": "ID del horario disponible",
+            "example": 100
+          },
+          "countryISO": {
+            "type": "string",
+            "description": "Código ISO del país (PE para Perú, CL para Chile)",
+            "enum": ["PE", "CL"],
+            "example": "PE"
+          },
+          "patientName": {
+            "type": "string",
+            "description": "Nombre completo del paciente",
+            "example": "Juan Pérez García"
+          },
+          "patientEmail": {
+            "type": "string",
+            "format": "email",
+            "description": "Email del paciente",
+            "example": "juan.perez@email.com"
+          },
+          "doctorName": {
+            "type": "string",
+            "description": "Nombre del doctor",
+            "example": "Dr. María González"
+          },
+          "specialty": {
+            "type": "string",
+            "description": "Especialidad médica",
+            "example": "Cardiología"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha de la cita (YYYY-MM-DD)",
+            "example": "2024-01-15"
+          },
+          "time": {
+            "type": "string",
+            "description": "Hora de la cita (HH:MM)",
+            "example": "14:30"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas adicionales sobre la cita",
+            "example": "Paciente con antecedentes de hipertensión"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "scheduled", "confirmed", "cancelled", "completed"],
+            "description": "Estado de la cita",
+            "default": "pending",
+            "example": "pending"
+          }
+        }
+      },
+      "Appointment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID único de la cita",
+            "example": "cf543683-6790-440a-9b9b-df9f36865f91"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID único de la solicitud",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "insuredId": {
+            "type": "string",
+            "description": "ID del asegurado/cliente",
+            "example": "12345666"
+          },
+          "scheduleId": {
+            "type": "integer",
+            "description": "ID del horario",
+            "example": 100
+          },
+          "countryISO": {
+            "type": "string",
+            "enum": ["PE", "CL"],
+            "description": "Código ISO del país",
+            "example": "PE"
+          },
+          "patientName": {
+            "type": "string",
+            "description": "Nombre del paciente",
+            "example": "Juan Pérez García"
+          },
+          "patientEmail": {
+            "type": "string",
+            "format": "email",
+            "description": "Email del paciente",
+            "example": "juan.perez@email.com"
+          },
+          "doctorName": {
+            "type": "string",
+            "description": "Nombre del doctor",
+            "example": "Dr. María González"
+          },
+          "specialty": {
+            "type": "string",
+            "description": "Especialidad médica",
+            "example": "Cardiología"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha de la cita",
+            "example": "2024-01-15"
+          },
+          "time": {
+            "type": "string",
+            "description": "Hora de la cita",
+            "example": "14:30"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "scheduled", "confirmed", "cancelled", "completed"],
+            "description": "Estado de la cita",
+            "example": "confirmed"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas adicionales",
+            "example": "Paciente con antecedentes de hipertensión"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de creación",
+            "example": "2024-01-10T10:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de última actualización",
+            "example": "2024-01-10T11:45:00.000Z"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de completado (si aplica)",
+            "example": "2024-01-10T11:45:00.000Z"
+          },
+          "ttl": {
+            "type": "integer",
+            "description": "Time to live para DynamoDB",
+            "example": 1704892200
+          }
+        }
+      },
+      "AppointmentResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "Código de estado HTTP",
+            "example": 200
+          },
+          "body": {
+            "$ref": "#/components/schemas/Appointment"
+          }
+        }
+      },
+      "AppointmentsListResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "Código de estado HTTP",
+            "example": 200
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "Código de estado HTTP",
+            "example": 400
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "Mensaje de error descriptivo",
+                "example": "Missing required fields: insuredId, scheduleId, countryISO"
+              },
+              "code": {
+                "type": "string",
+                "description": "Código de error específico",
+                "example": "VALIDATION_ERROR"
+              },
+              "details": {
+                "type": "object",
+                "description": "Detalles adicionales del error (opcional)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API Key para autenticación (si se implementa en el futuro)"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "externalDocs": {
+    "description": "Documentación adicional del sistema",
+    "url": "https://github.com/tu-usuario/cita-medica-lambda"
+  }
+} 
