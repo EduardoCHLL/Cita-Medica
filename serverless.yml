@@ -69,6 +69,14 @@ functions:
           path: appointments
           method: post
           cors: true
+      - http:
+          path: appointments-by-client/{id}
+          method: get
+          cors: true
+      - http:
+          path: appointments/{id}
+          method: get
+          cors: true 
       - sqs:
           arn: !GetAtt CompletionQueue.Arn
           batchSize: 1

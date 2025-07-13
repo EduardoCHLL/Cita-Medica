@@ -38,10 +38,14 @@ export class AppointmentService {
     return result.Item as Appointment || null;
   }
 
-  async getAllAppointments(): Promise<Appointment[]> {
+  async getAllAppointmentsbyinsuredId(Id: string): Promise<Appointment[]> {
     const result = await dynamodb
       .scan({
         TableName: TABLE_NAME,
+        FilterExpression: 'insuredId = :insuredId',
+        ExpressionAttributeValues: {
+          ':insuredId': Id
+        }
       })
       .promise();
 

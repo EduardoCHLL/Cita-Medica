@@ -49,13 +49,14 @@ export const handler = async (
       case 'POST':
         return await createAppointment(event);
       case 'GET':
-        return event.pathParameters?.id 
-          ? await getAppointment(event.pathParameters.id)
-          : await getAllAppointments();
-      case 'PUT':
-        return await updateAppointment(event);
-      case 'DELETE':
-        return await deleteAppointment(event.pathParameters?.id);
+        console.log('GET',event.pathParameters?.id,event.path)
+        if(event.pathParameters?.id){
+          return event.path==('/appointments-by-client/'+event.pathParameters?.id) ?await getAllAppointmentsbyinsuredId(event.pathParameters.id):await getAppointment(event.pathParameters.id)
+        } 
+        return createErrorResponse({
+          message: `Method ${event.httpMethod} not allowed`,
+          code: 'METHOD_NOT_ALLOWED',
+        }, 405);
       default:
         return createErrorResponse({
           message: `Method ${event.httpMethod} not allowed`,
@@ -246,9 +247,9 @@ async function getAppointment(id: string): Promise<APIGatewayProxyResult> {
   }
 }
 
-async function getAllAppointments(): Promise<APIGatewayProxyResult> {
+async function getAllAppointmentsbyinsuredId(Id: string): Promise<APIGatewayProxyResult> {
   try {
-    const appointments = await appointmentService.getAllAppointments();
+    const appointments = await appointmentService.getAllAppointmentsbyinsuredId(Id);
     return createSuccessResponse(appointments);
   } catch (error) {
     console.error('Error getting all appointments:', error);
